@@ -25,12 +25,19 @@
 #include "rosbag2_transport/storage_options.hpp"
 #include "rosbag2_transport/visibility_control.hpp"
 
+#include "rosbag2/sequential_reader.hpp"
+
 namespace rosbag2
 {
 class Info;
 class SequentialReader;
 class Writer;
 }  // namespace rosbag2
+
+namespace rosbag2_storage
+{
+class SerializedBagMessage;
+} // namespace rosbag2_storage
 
 namespace rosbag2_transport
 {
@@ -83,6 +90,11 @@ public:
    */
   ROSBAG2_TRANSPORT_PUBLIC
   void print_bag_info(const std::string & uri, const std::string & storage_id);
+
+  ROSBAG2_TRANSPORT_PUBLIC
+  bool open(const StorageOptions & storage_options);
+  ROSBAG2_TRANSPORT_PUBLIC
+  std::shared_ptr<rosbag2_introspection_message_t> next();
 
 private:
   std::shared_ptr<Rosbag2Node> setup_node(std::string node_prefix = "");

@@ -83,6 +83,28 @@ private:
   std::unordered_map<std::string, ConverterTypeSupport> topics_and_types_;
 };
 
+class ROSBAG2_PUBLIC ConverterToDeserialized
+{
+public:
+  explicit
+  ConverterToDeserialized(
+    const std::string & input_format,
+    std::shared_ptr<SerializationFormatConverterFactoryInterface> converter_factory =
+    std::make_shared<SerializationFormatConverterFactory>());
+
+  ~ConverterToDeserialized();
+
+  std::shared_ptr<rosbag2_introspection_message_t>
+  convert(std::shared_ptr<const SerializedBagMessage> message);
+
+  void add_topic(const std::string & topic, const std::string & type);
+
+private:
+  std::shared_ptr<SerializationFormatConverterFactoryInterface> converter_factory_;
+  std::unique_ptr<converter_interfaces::SerializationFormatDeserializer> input_converter_;
+  std::unordered_map<std::string, ConverterTypeSupport> topics_and_types_;
+};
+
 }  // namespace rosbag2
 
 #ifdef _WIN32

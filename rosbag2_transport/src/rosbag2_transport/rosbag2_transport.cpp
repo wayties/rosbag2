@@ -115,4 +115,28 @@ void Rosbag2Transport::print_bag_info(const std::string & uri, const std::string
   Formatter::format_bag_meta_data(metadata);
 }
 
+bool Rosbag2Transport::open(const StorageOptions & storage_options)
+{
+  try {
+    reader_->open(storage_options, {"", rmw_get_serialization_format()});
+    return true;
+  } catch (std::runtime_error & e) {
+    ROSBAG2_TRANSPORT_LOG_ERROR("Failed to open: %s", e.what());
+    return false;
+  }
+}
+
+std::shared_ptr<rosbag2_introspection_message_t> Rosbag2Transport::next()
+{
+  try {
+    if (reader_->has_next()) {
+      return reader_->read_next_deserialized();
+    }
+    return nullptr;
+  } catch (std::runtime_error & e) {
+    ROSBAG2_TRANSPORT_LOG_ERROR("Failed to get next: %s", e.what());
+    return nullptr;
+  }
+}
+
 }  // namespace rosbag2_transport

@@ -88,4 +88,44 @@ void Converter::add_topic(const std::string & topic, const std::string & type)
   topics_and_types_.insert({topic, type_support});
 }
 
+ConverterToDeserialized::ConverterToDeserialized(
+  const std::string & input_format,
+  std::shared_ptr<rosbag2::SerializationFormatConverterFactoryInterface> converter_factory)
+: converter_factory_(converter_factory),
+  input_converter_(converter_factory_->load_deserializer(input_format))
+{
+  if (!input_converter_) {
+    throw std::runtime_error("Could not find converter for format " + input_format);
+  }
+}
+
+ConverterToDeserialized::~ConverterToDeserialized()
+{
+  input_converter_.reset();
+  converter_factory_.reset();  // needs to be destroyed only after the converters
+}
+
+std::shared_ptr<rosbag2_introspection_message_t> ConverterToDeserialized::convert(
+  std::shared_ptr<const rosbag2::SerializedBagMessage> message)
+{
+  auto ts = topics_and_types_.at(message->topic_name).rmw_type_support;
+  auto introspection_ts = topics_and_types_.at(message->topic_name).introspection_type_support;
+  auto allocator = rcutils_get_default_allocator();
+  std::shared_ptr<rosbag2_introspection_message_t> allocated_ros_message =
+    allocate_introspection_message(introspection_ts, &allocator);
+
+  input_converter_->deserialize(message, ts, allocated_ros_message);
+  return allocated_ros_message;
+}
+
+void ConverterToDeserialized::add_topic(const std::string & topic, const std::string & type)
+{
+  ConverterTypeSupport type_support;
+  type_support.rmw_type_support = get_typesupport(type, "rosidl_typesupport_c");
+  type_support.introspection_type_support =
+    get_typesupport(type, "rosidl_typesupport_introspection_c");
+
+  topics_and_types_.insert({topic, type_support});
+}
+
 }  // namespace rosbag2

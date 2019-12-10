@@ -30,6 +30,8 @@ find_package(Poco COMPONENTS Foundation)
 find_package(rcutils REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 find_package(rosidl_generator_cpp REQUIRED)
+find_package(rosidl_typesupport_c REQUIRED)
+find_package(rosidl_typesupport_introspection_c REQUIRED)
 find_package(rosidl_typesupport_cpp REQUIRED)
 find_package(rosidl_typesupport_introspection_cpp REQUIRED)
 
@@ -51,6 +53,8 @@ ament_target_dependencies(${PROJECT_NAME}
   rosidl_generator_cpp
   rosidl_typesupport_introspection_cpp
   rosidl_typesupport_cpp
+  rosidl_typesupport_introspection_c
+  rosidl_typesupport_c
 )
 
 target_include_directories(${PROJECT_NAME}

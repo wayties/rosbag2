@@ -29,7 +29,7 @@ SequentialReader::SequentialReader(
   std::unique_ptr<rosbag2_storage::StorageFactoryInterface> storage_factory,
   std::shared_ptr<SerializationFormatConverterFactoryInterface> converter_factory)
 : storage_factory_(std::move(storage_factory)), converter_factory_(std::move(converter_factory)),
-  converter_(nullptr)
+  converter_(nullptr), converter_deserialized_(nullptr)
 {}
 
 SequentialReader::~SequentialReader()
@@ -69,6 +69,14 @@ SequentialReader::open(
       converter_->add_topic(topic_with_type.name, topic_with_type.type);
     }
   }
+
+  converter_deserialized_ = std::make_unique<ConverterToDeserialized>(
+    storage_serialization_format,
+    converter_factory_);
+  auto topics2 = storage_->get_all_topics_and_types();
+  for (const auto & topic_with_type : topics2) {
+    converter_deserialized_->add_topic(topic_with_type.name, topic_with_type.type);
+  }
 }
 
 bool SequentialReader::has_next()
@@ -84,6 +92,18 @@ std::shared_ptr<SerializedBagMessage> SequentialReader::read_next()
   if (storage_) {
     auto message = storage_->read_next();
     return converter_ ? converter_->convert(message) : message;
+  }
+  throw std::runtime_error("Bag is not open. Call open() before reading.");
+}
+
+std::shared_ptr<rosbag2_introspection_message_t> SequentialReader::read_next_deserialized()
+{
+  if (storage_) {
+    auto message = storage_->read_next();
+    if (converter_deserialized_) {
+      return converter_deserialized_->convert(converter_ ? converter_->convert(message) : message);
+    }
+    throw std::runtime_error("ConverterToDeserialized is not enabled.");
   }
   throw std::runtime_error("Bag is not open. Call open() before reading.");
 }

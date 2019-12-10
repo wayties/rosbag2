@@ -92,6 +92,10 @@ public:
   virtual std::shared_ptr<SerializedBagMessage> read_next();
 
   /**
+   */
+  virtual std::shared_ptr<rosbag2_introspection_message_t> read_next_deserialized();
+
+  /**
    * Ask bagfile for all topics (including their type identifier) that were recorded.
    *
    * \return vector of topics with topic name and type as std::string
@@ -104,6 +108,7 @@ private:
   std::shared_ptr<SerializationFormatConverterFactoryInterface> converter_factory_;
   std::shared_ptr<rosbag2_storage::storage_interfaces::ReadOnlyInterface> storage_;
   std::unique_ptr<Converter> converter_;
+  std::unique_ptr<ConverterToDeserialized> converter_deserialized_;
 };
 
 }  // namespace rosbag2

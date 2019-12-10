@@ -154,6 +154,126 @@ rosbag2_transport_info(PyObject * Py_UNUSED(self), PyObject * args, PyObject * k
   Py_RETURN_NONE;
 }
 
+static std::shared_ptr<rosbag2_transport::Rosbag2Transport> transport_ = nullptr;
+static std::shared_ptr<rosbag2_introspection_message_t> introspection_message_ = nullptr;
+
+static void *
+get_capsule_pointer(PyObject * pymetaclass, const char * attr)
+{
+  PyObject * pyattr = PyObject_GetAttrString(pymetaclass, attr);
+  if (!pyattr) {
+    return nullptr;
+  }
+  void * ptr = PyCapsule_GetPointer(pyattr, nullptr);
+  Py_DECREF(pyattr);
+  return ptr;
+}
+
+static PyObject *
+convert_to_py(void * message, PyObject * pyclass)
+{
+  PyObject * pymetaclass = PyObject_GetAttrString(pyclass, "__class__");
+  if (!pymetaclass) {
+    return nullptr;
+  }
+  PyObject * (*convert)(void *) = (PyObject * (*)(void*))get_capsule_pointer(
+      pymetaclass, "_CONVERT_TO_PY");
+  Py_DECREF(pymetaclass);
+  if (!convert) {
+    return nullptr;
+  }
+  return convert(message);
+}
+
+static PyObject *
+rosbag2_transport_open(PyObject * Py_UNUSED(self), PyObject * args)
+{
+  rosbag2_transport::StorageOptions storage_options{};
+
+  char * char_uri;
+  char * char_storage_id;
+  if (!PyArg_ParseTuple(args, "ss", &char_uri, &char_storage_id)) {
+    return nullptr;
+  }
+
+  storage_options.uri = std::string(char_uri);
+  storage_options.storage_id = std::string(char_storage_id);
+
+  if (transport_ != nullptr) {
+    transport_.reset();
+    transport_ = nullptr;
+  }
+
+  transport_ = std::make_shared<rosbag2_transport::Rosbag2Transport>();
+  if (transport_->open(storage_options)) {
+    Py_RETURN_TRUE;
+  }
+
+  transport_.reset();
+  transport_ = nullptr;
+
+  Py_RETURN_FALSE;
+}
+
+static PyObject *
+rosbag2_transport_next(PyObject * Py_UNUSED(self), PyObject * Py_UNUSED(noargs))
+{
+  if (transport_ == nullptr) {
+    return nullptr;
+  }
+
+  introspection_message_ = transport_->next();
+  if (introspection_message_) {
+    return Py_BuildValue("s", introspection_message_->topic_name);
+  }
+
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+rosbag2_transport_convert(PyObject * Py_UNUSED(self), PyObject * args)
+{
+  PyObject * pymsg_type;
+
+  if (!PyArg_ParseTuple(args, "O", &pymsg_type)) {
+    return nullptr;
+  }
+
+  if (transport_ == nullptr) {
+    return nullptr;
+  }
+
+  if (introspection_message_) {
+    PyObject * pymsg = convert_to_py(introspection_message_->message, pymsg_type);
+    if (!pymsg) {
+      return nullptr;
+    }
+    PyObject * val = Py_BuildValue("dO", introspection_message_->time_stamp * 1e-9, pymsg);
+    Py_DECREF(pymsg);
+    return val;
+  }
+
+  return nullptr;
+}
+
+static PyObject *
+rosbag2_transport_close(PyObject * Py_UNUSED(self), PyObject * Py_UNUSED(noargs))
+{
+  if (transport_ == nullptr) {
+    return nullptr;
+  }
+
+  if (introspection_message_) {
+    introspection_message_.reset();
+    introspection_message_ = nullptr;
+  }
+
+  transport_.reset();
+  transport_ = nullptr;
+
+  Py_RETURN_TRUE;
+}
+
 /// Define the public methods of this module
 #if __GNUC__ >= 8
 # pragma GCC diagnostic push
@@ -171,6 +291,22 @@ static PyMethodDef rosbag2_transport_methods[] = {
   {
     "info", reinterpret_cast<PyCFunction>(rosbag2_transport_info), METH_VARARGS | METH_KEYWORDS,
     "Print bag info"
+  },
+  {
+    "open", reinterpret_cast<PyCFunction>(rosbag2_transport_open), METH_VARARGS,
+    "Open bag"
+  },
+  {
+    "next", reinterpret_cast<PyCFunction>(rosbag2_transport_next), METH_NOARGS,
+    "Read next message in opened bag"
+  },
+  {
+    "convert", reinterpret_cast<PyCFunction>(rosbag2_transport_convert), METH_VARARGS,
+    "Convert current message to python object"
+  },
+  {
+    "close", reinterpret_cast<PyCFunction>(rosbag2_transport_close), METH_NOARGS,
+    "Close opened bag"
   },
   {nullptr, nullptr, 0, nullptr}  /* sentinel */
 };
